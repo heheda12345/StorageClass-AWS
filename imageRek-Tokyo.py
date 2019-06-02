@@ -19,24 +19,12 @@ session_token = os.getenv('AWS_SESSION_TOKEN')
 region = os.getenv('AWS_REGION')
 
 # Create clients for AWS services
+dst_bucket='storage-class-classified-tokyo'
+s3 = boto3.resource('s3')
+s3_client = boto3.client('s3')
+s3_resource = boto3.resource('s3')
+s3_dst_bucket = s3.Bucket(dst_bucket)
 rek_client = boto3.client('rekognition')
-
-# Establish connection to ElasticSearch
-#auth = AWSRequestsAuth(aws_access_key=access_key,
-#                       aws_secret_access_key=secret_access_key,
-#                       aws_token=session_token,
-#                       aws_host=es_host,
-#                       aws_region=region,
-#                       aws_service='es')
-#
-#es = Elasticsearch(host=es_host,
-#                   port=443,
-#                   use_ssl=True,
-#                   connection_class=RequestsHttpConnection,
-#                   http_auth=auth)
-
-# logger.info("{}".format(es.info()))
-
 
 def lambda_handler(event, context):
     """Lambda Function entrypoint handler
@@ -46,6 +34,7 @@ def lambda_handler(event, context):
     :returns: Number of records processed
 
     """
+    s3 = boto3.client('s3')
     processed = 0
     for record in event['Records']:
         s3_record = record['s3']
@@ -59,15 +48,27 @@ def lambda_handler(event, context):
             MinConfidence=80)
 
         labels = []
+        copy_source = {
+                'Bucket': bucket,
+                'Key': key
+                }
         for l in resp['Labels']:
             labels.append(l['Name'])
+            # print('=====\n', str(l), str(key))
+            dst_key=l['Name']+'/'+key
+            ret_copy = s3_dst_bucket.copy(copy_source, dst_key)
+            logger.debug(ret_copy)
+
 
         logger.debug('Detected labels: {}'.format(labels))
         # res = es.index(index=es_index, doc_type='event',
         #                id=key, body={'labels': labels})
 
         # logger.debug(res)
+
+
         processed = processed + 1
+
 
     logger.info('Successfully processed {} records'.format(processed))
     return processed
