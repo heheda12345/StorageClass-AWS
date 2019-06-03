@@ -25,6 +25,8 @@ s3_client = boto3.client('s3')
 s3_resource = boto3.resource('s3')
 s3_dst_bucket = s3.Bucket(dst_bucket)
 rek_client = boto3.client('rekognition')
+dynamodb_client = boto3.client('dynamodb')
+
 
 def lambda_handler(event, context):
     """Lambda Function entrypoint handler
@@ -53,11 +55,28 @@ def lambda_handler(event, context):
                 'Key': key
                 }
         for l in resp['Labels']:
-            labels.append(l['Name'])
-            # print('=====\n', str(l), str(key))
-            dst_key=l['Name']+'/'+key
-            ret_copy = s3_dst_bucket.copy(copy_source, dst_key)
-            logger.debug(ret_copy)
+            # labels.append(l['Name'])
+            # # print('=====\n', str(l), str(key))
+            # dst_key=l['Name']+'/'+key
+            # ret_copy = s3_dst_bucket.copy(copy_source, dst_key)
+            # logger.debug(ret_copy)
+	    dynamodb_client=client.put_item(
+		    TableName='storage-class-dynamodb-tokyo',
+		    Item={
+			'uuid': {
+			    'S': 'asefawef'
+			    },
+			'tag': {
+			    'S': 'apple'
+			    },
+			'path': {
+			    'S': 'a/b'
+			    }
+			},
+		    # ReturnValues='NONE'|'ALL_OLD'|'UPDATED_OLD'|'ALL_NEW'|'UPDATED_NEW',
+		    # ReturnConsumedCapacity='INDEXES'|'TOTAL'|'NONE',
+		    # ReturnItemCollectionMetrics='SIZE'|'NONE'
+                    )
 
 
         logger.debug('Detected labels: {}'.format(labels))
