@@ -1,6 +1,7 @@
 import boto3
 import os
 import logging
+import uuid
 # from elasticsearch import Elasticsearch, RequestsHttpConnection
 # from aws_requests_auth.aws_auth import AWSRequestsAuth
 
@@ -25,7 +26,8 @@ s3_client = boto3.client('s3')
 s3_resource = boto3.resource('s3')
 s3_dst_bucket = s3.Bucket(dst_bucket)
 rek_client = boto3.client('rekognition')
-dynamodb_client = boto3.client('dynamodb')
+dynamodb_client = boto3.resource('dynamodb')
+table = dynamodb_client.Table('storage-class-dynamodb-tokyo-tag-uuid')
 
 
 def lambda_handler(event, context):
@@ -38,47 +40,40 @@ def lambda_handler(event, context):
     """
     s3 = boto3.client('s3')
     processed = 0
+
     for record in event['Records']:
         s3_record = record['s3']
 
         key = s3_record['object']['key']
         bucket = s3_record['bucket']['name']
+        logger.info('key&bucket')
+        logger.info(key)
+        logger.info(bucket)
 
         resp = rek_client.detect_labels(
             Image={'S3Object': {'Bucket': bucket, 'Name': key}},
             MaxLabels=10,
             MinConfidence=80)
-
+        logger.info('resp: {}'.format(resp))
         labels = []
         copy_source = {
                 'Bucket': bucket,
                 'Key': key
                 }
         for l in resp['Labels']:
-            # labels.append(l['Name'])
-            # # print('=====\n', str(l), str(key))
-            # dst_key=l['Name']+'/'+key
-            # ret_copy = s3_dst_bucket.copy(copy_source, dst_key)
-            # logger.debug(ret_copy)
-	    dynamodb_client=client.put_item(
-		    TableName='storage-class-dynamodb-tokyo',
-		    Item={
-			'uuid': {
-			    'S': 'asefawef'
-			    },
-			'tag': {
-			    'S': 'apple'
-			    },
-			'path': {
-			    'S': 'a/b'
-			    }
-			},
-		    # ReturnValues='NONE'|'ALL_OLD'|'UPDATED_OLD'|'ALL_NEW'|'UPDATED_NEW',
-		    # ReturnConsumedCapacity='INDEXES'|'TOTAL'|'NONE',
-		    # ReturnItemCollectionMetrics='SIZE'|'NONE'
-                    )
-
-
+            labels.append(l['Name'])
+            print('=====' + str(l) + str(key))
+            dst_key='/'+l['Name']+'/'+key
+            ret_copy = s3_dst_bucket.copy(copy_source, dst_key)
+            table.put_item(
+                Item={
+                    'uuid': l['Name']+'/'+bucket+'/'+key,
+                    'tag' : l['Name'],
+                    'Bucket': bucket,
+                    'Name': key
+                    }
+                )
+            
         logger.debug('Detected labels: {}'.format(labels))
         # res = es.index(index=es_index, doc_type='event',
         #                id=key, body={'labels': labels})

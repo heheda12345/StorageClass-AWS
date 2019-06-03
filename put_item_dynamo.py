@@ -3,7 +3,7 @@ import os
 import logging
 dynamodb_client = boto3.resource('dynamodb')
 table = dynamodb_client.Table('storage-class-dynamodb-tokyo')
-
+print(table)
 ret=table.put_item(
         Item={
             'uuid': 'asefawef',
@@ -36,6 +36,14 @@ ret = table.get_item(
         Key={
             'uuid': 'a',
             'tag' : 'b'
+            }
+        )
+print(ret)
+
+ret = table.get_item(
+        Key={
+            'uuid': 'asefawef',
+            'tag' : 'apple'
             }
         )
 print(ret)
