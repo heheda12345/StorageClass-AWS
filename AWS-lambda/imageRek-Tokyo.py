@@ -22,6 +22,8 @@ def lambda_handler(event, context):
     :returns: Number of records processed
 
     """
+    logger.debug('==={}'.format(event))
+
     processed = 0
 
     for record in event['Records']:
