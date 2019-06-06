@@ -94,6 +94,30 @@ class DynamoAdaptor:
         self.logger.debug('===Finish generate audio, save to {}'.format(key))
 
 
+    def translateFile(self, bucket, key):
+        source_bucket = self.s3.Bucket(bucket)
+        source_obj = source_bucket.Object(key)
+        if (source_obj is None):
+            self.logger.debug('==={}/{} not found'.format(bucket, key))
+            return
+        text = source_obj.get()['Body'].read().decode()
+        self.logger.debug('===Read: {}'.format(text))
+
+        translate = boto3.client('translate')
+        response = translate.translate_text(
+            Text = text,
+            SourceLanguageCode='en',
+            TargetLanguageCode='zh'
+        )
+        if ('TranslatedText' not in response):
+            self.logger.debug("===Fail to generate translation")
+            return
+        self.logger.debug('===translate result: {}'.format(response['TranslatedText']))
+        target_bucket = self.s3.Bucket(self.audio_bucket_name)
+        target_bucket.put_object(Key=key, Body=response['TranslatedText'])
+        self.logger.debug('===Finish translation, save to {}'.format(key))
+
+
     def create(self, record):
         ''' record example
         {
@@ -120,7 +144,8 @@ class DynamoAdaptor:
             self.insertImageToDynamo(bucket, key)
         elif key.startswith('read/'):
             self.generateAudio(bucket, key)
-            # TODO remove the audio
+        elif key.startswith('translate/'):
+            self.translateFile(bucket, key)
     
 
     def removeImageFromDynamo(self, bucket, key):
@@ -166,6 +191,16 @@ class DynamoAdaptor:
         self.logger.debug('===Finish remove {}/{}', self.audio_bucket_name, key)
 
 
+    def removeTranslate(self, bucket, key): # same as removeAudio
+        audio_bucket = self.s3.Bucket(self.audio_bucket_name)
+        obj = audio_bucket.Object(key)
+        if (obj is None):
+            self.logger.debug('==={} not found in {}'.format(key, self.audio_bucket_name))
+            return
+        obj.delete()
+        self.logger.debug('===Finish remove {}/{}', self.audio_bucket_name, key)
+
+
     def remove(self, record):
         ''' record example
         {
@@ -189,6 +224,8 @@ class DynamoAdaptor:
             self.removeImageFromDynamo(bucket, key)
         elif key.startswith('read/'):
             self.removeAudio(bucket, key)
+        elif key.startswith('translate/'):
+            self.removeTranslate(bucket, key)
         
 
     def handle(self, record):
